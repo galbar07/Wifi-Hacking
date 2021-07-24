@@ -12,7 +12,6 @@ def scanEvilAP(pkt):
     if pkt.haslayer(Dot11Beacon):  # check if the pkt is dot11
         if pkt.type == 0 and pkt.subtype == 8:  # check if ( type 0-Management , 8 - Beacon)
             if not (pkt.info.decode("utf-8") in aps_dict):  # decode("utf-8") - cast to String
-                # network_stats()['crypto'] = [OPN,WEP,WPA,WPA2]
                 if not ('OPN' in pkt[Dot11Beacon].network_stats()['crypto']):  # add only the secured ap
                     aps_dict[pkt.info.decode("utf-8")] = pkt.addr3
             elif (aps_dict[pkt.info.decode(
