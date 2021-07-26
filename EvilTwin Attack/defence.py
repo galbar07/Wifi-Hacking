@@ -54,4 +54,4 @@ if __name__ == '__main__':
     switch_channels()
     print("Scanning.......\n")
     print("duplicated networks founds, be carefull connecting to them:")
-    sniff(prn=scanEvilAP, iface=interfaceName, count=timeOut)  # iface - interface to sniff , prn - function
+    sniff(prn=scanEvilAP, iface=interfaceName, count=timeOut)  
