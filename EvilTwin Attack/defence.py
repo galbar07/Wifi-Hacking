@@ -16,8 +16,7 @@ def scanEvilAP(pkt):
         if pkt.type == 0 and pkt.subtype == 8: 
             if not (pkt.info.decode("utf-8") in ap_list):  
                 ap_list[pkt.info.decode("utf-8")] = pkt.addr3
-            elif (ap_list[pkt.info.decode(
-                    "utf-8")] != pkt.addr3):
+            elif (ap_list[pkt.info.decode("utf-8")] != pkt.addr3):
                 if not (pkt.info.decode("utf-8") in evil_ap_list):
                     print("%s" % (pkt.info.decode("utf-8")))
                     evil_ap_list[pkt.info.decode("utf-8")] = pkt.info.decode("utf-8")
